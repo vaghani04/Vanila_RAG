@@ -1,3 +1,5 @@
 .env
 .rag_env
 /old
+.DS_Store
+GCP_credentials.json

@@ -37,7 +37,7 @@ class Document:
 async def retrieve_documents_as_docs(query, top_k=5):
     retrieved = await retrieve_chunks(query, top_k)
     docs = []
-    for doc in retrieved:
+    for doc in retrieved["retrieved_data"]:
         metadata = {
             "id": doc["doc_id"],
             "score": doc["score"],
@@ -45,7 +45,7 @@ async def retrieve_documents_as_docs(query, top_k=5):
             "summary": doc["summary"]
         }
         docs.append(Document(page_content=doc["content"], metadata=metadata))
-    return docs
+    return {"docs": docs, "img_urls": retrieved["img_urls"]}
 
 def parse_docs(docs):
     b64 = []
@@ -82,14 +82,15 @@ def build_prompt(kwargs):
 
 async def rag(query):
     docs = await retrieve_documents_as_docs(query)
-    parsed = parse_docs(docs)
+    image_urls = docs["img_urls"]
+    parsed = parse_docs(docs["docs"])
     prompt_parts = build_prompt({"context": parsed, "question": query})
     response = gemini_model.generate_content(prompt_parts)
-    return response.text
+    return {"response": response.text, "img_urls": image_urls}
 
 async def rag_with_sources(query):
     docs = await retrieve_documents_as_docs(query)
-    parsed = parse_docs(docs)
+    parsed = parse_docs(docs["docs"])
     prompt_parts = build_prompt({"context": parsed, "question": query})
     response = gemini_model.generate_content(prompt_parts)
     return {
@@ -97,25 +98,26 @@ async def rag_with_sources(query):
         "context": parsed
     }
 
-async def main():
-    query = "What is the scaled dot product and multi head attention?"
-    response = await rag(query)
-    print(type(response))
+# async def main():
+#     # query = "What is the scaled dot product and multi head attention?"
+#     query = "The image is a diagram illustrating the architecture of a transformer model, likely a type used in natural language processing. "
+#     response = await rag(query)
+#     print(type(response))
 
-    result = await rag_with_sources(query)
-    print("Response:", result["response"])
-    for image in result["context"]["images"]:
-        print("Image (base64):", image)
-        print(f'\n\n HERE IS THE IMAGE: {type(image)}')
+#     result = await rag_with_sources(query)
+#     print("Response:", result["response"])
+#     for image in result["context"]["images"]:
+#         print("Image (base64):", image)
+#         print(f'\n\n HERE IS THE IMAGE: {type(image)}')
 
-if __name__ == "__main__":
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(main())
-    finally:
-        pending = asyncio.all_tasks(loop)
-        if pending:
-            loop.run_until_complete(asyncio.gather(*pending))
-        client.close()
-        loop.close()
+# if __name__ == "__main__":
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+#     try:
+#         loop.run_until_complete(main())
+#     finally:
+#         pending = asyncio.all_tasks(loop)
+#         if pending:
+#             loop.run_until_complete(asyncio.gather(*pending))
+#         client.close()
+#         loop.close()
